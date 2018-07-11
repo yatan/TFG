@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdarg.h>
 #include <string.h>
 #include <vector>
-#include <sstream>
 
 #include <tsl/sparse_map.h>
 #include <cassandra.h>
@@ -37,24 +37,26 @@ CassError connect_session(const CassCluster* cluster, CassSession* session) {
 		print_error(future);
 	}
 	cass_future_free(future);
-
 	return rc;
 }
 
 int execute_query(const char* query, int s1, int cr1) {
 	int Chunk = 10;
+
 	CassCluster* cs_cluster;
 	CassSession* cs_session;
 	
 	CassError rc = CASS_OK;
 	CassFuture* future = NULL;
+
 	cass_int32_t r1;
 	cass_int32_t s2;
 	cass_int32_t r2;
 	cass_int32_t w;
+
 	int iStart = cr1*Chunk;
 	int iEnd = iStart + Chunk;
-	//int pid = getpid();
+
 	//static int aval_size = (CL->S)->nseq * ((CL->S)->max_len+1) * sizeof(int);
 
 	std::vector<std::vector<std::pair<int,Constraint *> > > cache;
@@ -74,20 +76,6 @@ int execute_query(const char* query, int s1, int cr1) {
 		//cass_session_free(session);
 	}
 	
-	//fprintf(stdout, "Elm: %d\n",cache_elements);
-	//fprintf(stdout, "Size: %d\n",(sizeof(int)*3)*cache_elements + sizeof(CL->cache) + aval_size);
-	//fprintf(stdout, "CCE: %d | SCE: %d | CCLRU: %d | SCLRU: %d \n",cache_elements, score_elements, lru.size(), lru_sc.size());
-	/*	
-	while(((sizeof(int)*3)*cache_elements + sizeof(CL->cache) + aval_size) > CL->max_mem*0.9) {
-		std::pair<int,int> tmp_key = lru.remove();
-		//fprintf(stdout, "Remove %d %d\n",tmp_key.first,tmp_key.second);
-		for(int i=tmp_key.second*CL->qChunk;i<(tmp_key.second*CL->qChunk) + CL->qChunk && i<(CL->S)->max_len+1;i++) {
-			cache_elements-=CL->cache[tmp_key.first][i].first;
-			CL->cache[tmp_key.first][i].first = 0;
-			free(CL->cache[tmp_key.first][i].second);
-		}
-	}
-	*/
 	CassStatement* statement = cass_statement_new(query, 0);
 	future = cass_session_execute(cs_session, statement);
 	cass_future_wait(future);
@@ -121,8 +109,6 @@ int execute_query(const char* query, int s1, int cr1) {
 			cache[s1][r1].second[cache_it[r1]].r2 = r2;
 			cache[s1][r1].second[cache_it[r1]].w = w;
 			cache_it[r1]++;
-			
-			//cache_elements++;
 		}
 		cass_result_free(result);
 	} else {
@@ -138,18 +124,25 @@ int execute_query(const char* query, int s1, int cr1) {
 		cache_it[i]=0;
 		
 	}
-	//lru.insert(std::make_pair(s1,cr1));
 	cass_future_free(future);
 	cass_statement_free(statement);
 	return 1;
 }
 
 
-int main() {
-  std::stringstream s;
+int main()
+{
+  char s[256];
   int s1, r1, Chunk;
-  const char *seq_name2 = (char *)"R100";
+  const char *seq_name2 = "R100";
 
-  s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s1 << " " << r1 / Chunk << "'";	
-  execute_query(s.str().c_str(), s1, r1 / Chunk);
+/* strcpy(s, "select r1,s2,r2,w from ppcas.");*/
+
+/* << seq_name2 << " where key = '" << s1 << " " << r1 / Chunk << "'";*/
+
+/* fprintf(stdout, "Elm: %s\n",s); */
+
+/* execute_query(s, s1, r1 / Chunk); */
+
+  return 0;
 }
