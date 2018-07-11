@@ -1,0 +1,1 @@
+g++ l_cas.c -I /home/frb2/cpp-driver/include/ -std=c++11 -I /home/frb2/sparse-map/ -L /home/frb2/cpp-driver/build/ -lcassandra
