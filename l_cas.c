@@ -11,6 +11,12 @@
 
 
 #define FORBIDEN -1
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+int Chunk = 10;
+int nseq = 2;
+int max_len = 9999;
 
 struct Constraint{
 	int s2;
@@ -18,7 +24,6 @@ struct Constraint{
 	int w;
 };
 
-int Chunk = 10;
 
 std::vector<std::vector<std::pair<int,Constraint *> > > cache;
 
@@ -58,7 +63,7 @@ CassError connect_session(const CassCluster* cluster, CassSession* session) {
 	return rc;
 }
 
-int execute_query(const char* query, int s1, int cr1) {
+int execute_query(const char* query, int s1, int cr1, int cache_type) {
 
 	CassCluster* cs_cluster;
 	CassSession* cs_session;
@@ -82,7 +87,7 @@ int execute_query(const char* query, int s1, int cr1) {
 	std::vector<std::vector<tsl::sparse_map<size_t, int>>> scores;
 	std::vector<int> cache_it;
 
-	cache_it.resize(9999,0);
+	cache_it.resize(max_len,0);
 
 	if(!cs_session) {
 		cs_session = cass_session_new();
@@ -111,16 +116,16 @@ int execute_query(const char* query, int s1, int cr1) {
 		printf("Size: %d\n", size);
 
 		if(size==0) {
-			for(int i=iStart;i<iEnd;i++) {cache[0][i].first = -1;}
+			for(int i=iStart;i<iEnd && i<max_len+1;i++) {cache[cache_type][i].first = -1;}
 			cass_result_free(result);
 			cass_future_free(future);
 			cass_statement_free(statement);
 			return 1;
 		}
 
-		printf("[%d-%d]\n", iStart, iEnd);
-		for(int i=iStart;i<iEnd;i++) {
-			cache[0][i].second = (Constraint*) malloc(size * sizeof(Constraint));
+		//printf("[%d-%d]\n", iStart, iEnd);
+		for(int i=iStart;i<iEnd && i<max_len+1;i++) {
+			cache[cache_type][i].second = (Constraint*) malloc(size * sizeof(Constraint));
 		}
 
 		while (cass_iterator_next(iterator)) {
@@ -130,13 +135,12 @@ int execute_query(const char* query, int s1, int cr1) {
 			cass_value_get_int32(cass_row_get_column_by_name(row, "r2"), &r2);
 			cass_value_get_int32(cass_row_get_column_by_name(row, "w"), &w);
 
-			int local_s1 = 0;
-			printf("r1: %d\n", r1);
-			printf("%d\n",cache_it[r1]);
+			//printf("r1: %d\n", r1);
+			//printf("%d\n",cache_it[r1]);
 
-			cache[0][r1].second[cache_it[r1]].s2 = s2;
-			cache[0][r1].second[cache_it[r1]].r2 = r2;
-			cache[0][r1].second[cache_it[r1]].w = w;
+			cache[cache_type][r1].second[cache_it[r1]].s2 = s2;
+			cache[cache_type][r1].second[cache_it[r1]].r2 = r2;
+			cache[cache_type][r1].second[cache_it[r1]].w = w;
 			cache_it[r1]++;
 		}
 		cass_result_free(result);
@@ -147,9 +151,9 @@ int execute_query(const char* query, int s1, int cr1) {
 		return -1;
 	}
 
-	for(int i=iStart;i<iEnd;i++) {
-		cache[0][i].second = (Constraint*) realloc(cache[0][i].second, cache_it[i] * sizeof(Constraint));
-		cache[0][i].first = cache_it[i];
+	for(int i=iStart;i<iEnd && i<max_len+1;i++) {
+		cache[cache_type][i].second = (Constraint*) realloc(cache[cache_type][i].second, cache_it[i] * sizeof(Constraint));
+		cache[cache_type][i].first = cache_it[i];
 		cache_it[i] = 0;
 
 	}
@@ -163,18 +167,17 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 
 	const char *seq_name2 = "rrm_100";
 	// Cache para 2 secuencias
-	cache.resize( 2 , std::vector<std::pair<int,Constraint *> >( 9999 ) );
+	cache.resize( nseq , std::vector<std::pair<int,Constraint *> >( max_len + 1 ) );
 
 
 	if ( r1<=0 || r2<=0) {return 0;}
 
 	double score=0, max_score=0, max_val=0;
 	int t_s, t_r;
-	static int **hasch, max_len;
-	int nseq = 2;
+	static int **hasch;
 
 	if ( !hasch ) {
-	   hasch = declare_int ( nseq, 9999);
+	   hasch = declare_int ( max_len, max_len + 1);
 	}
 
 
@@ -182,42 +185,43 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 	if(cache[s1][r1].first==0) {
 		std::stringstream s;
 		s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s1 << " " << r1/Chunk << "'";
-		execute_query(s.str().c_str(), s1, r1/Chunk);
+		execute_query(s.str().c_str(), s1, r1/Chunk, 0);
 
 	}
 
 	if(cache[s2][r2].first==0) {
 		std::stringstream s;
 		s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s2 << " " << r2/Chunk << "'";
-		execute_query(s.str().c_str(), s2, r2/Chunk);
+		execute_query(s.str().c_str(), s2, r2/Chunk, 1);
 	}
 
 	for (int i=0; i<cache[s1][r1].first;i++) {
-	    t_s = cache[s1][r1].second[i].s2;
-	    t_r = cache[s1][r1].second[i].r2;
-	    hasch[t_s][t_r] = cache[s1][r1].second[i].w;
-	    max_score += cache[s1][r1].second[i].w;
+	    t_s = cache[0][r1].second[i].s2;
+	    t_r = cache[0][r1].second[i].r2;
+	    hasch[t_s][t_r] = cache[0][r1].second[i].w;
+	    max_score += cache[0][r1].second[i].w;
+		//printf("%d\n", max_score);
 	}
 
 	hasch[s1][r1] = FORBIDEN;
 
-	for (int i=0; i<cache[s2][r2].first;i++) {
-	    t_s = cache[s2][r2].second[i].s2;
-	    t_r = cache[s2][r2].second[i].r2;
+	for (int i=0; i<cache[1][r2].first;i++) {
+	    t_s = cache[1][r2].second[i].s2;
+	    t_r = cache[1][r2].second[i].r2;
 
 	    if (hasch[t_s][t_r]) {
 			if (hasch[t_s][t_r] == FORBIDEN) {
-				score += cache[s2][r2].second[i].w;
-				max_score += cache[s2][r2].second[i].w;
+				score += cache[1][r2].second[i].w;
+				max_score += cache[1][r2].second[i].w;
 			}
 			else {
 				double delta;
-				//delta = MIN(hasch[t_s][t_r], cache[s2][r2].second[i].w);
+				delta = MIN(hasch[t_s][t_r], cache[s2][r2].second[i].w);
 
 				score += delta;
 				max_score -= hasch[t_s][t_r];
 				max_score += delta;
-				//max_val = MAX(max_val,delta);
+				max_val = MAX(max_val,delta);
 			}
 	    }
 		else {
@@ -238,9 +242,7 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 	    }
 	}*/
 
-	//CL->scores[s1][s2][make_pair_un(r1,r2)]=(int)score;
-
-	return (int)score;
+	return (int)max_score;
 }
 
 
@@ -250,7 +252,8 @@ int main()
   int s1=1, r1=1, Chunk=1;
   const char *seq_name2 = "rrm_100";
 
-  residue_pair_extended_list ( s1, r1, 1, 1 );
+  int score = residue_pair_extended_list ( s1, r1, 1, 1 );
+  printf("Score: %d\n", score);
 
   return 0;
 }
