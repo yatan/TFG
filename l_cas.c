@@ -9,6 +9,7 @@
 #include <tsl/sparse_map.h>
 #include <cassandra.h>
 
+
 #define FORBIDEN -1
 
 struct Constraint{
@@ -20,6 +21,16 @@ struct Constraint{
 int Chunk = 10;
 
 std::vector<std::vector<std::pair<int,Constraint *> > > cache;
+
+int **declare_int (int f, int s)
+{
+  int **r;
+  int a;
+  r=(int**)malloc ( f * sizeof (int*));
+  for (a=0; a<f; a++)
+    r[a]=(int*)malloc ( s * sizeof (int*));
+  return r;
+}
 
 void print_error(CassFuture* future) {
 	const char* message;
@@ -120,8 +131,8 @@ int execute_query(const char* query, int s1, int cr1) {
 			cass_value_get_int32(cass_row_get_column_by_name(row, "w"), &w);
 
 			int local_s1 = 0;
-	printf("r1: %d\n", r1);
-printf("%d\n",cache_it[r1]);
+			printf("r1: %d\n", r1);
+			printf("%d\n",cache_it[r1]);
 
 			cache[0][r1].second[cache_it[r1]].s2 = s2;
 			cache[0][r1].second[cache_it[r1]].r2 = r2;
@@ -139,7 +150,7 @@ printf("%d\n",cache_it[r1]);
 	for(int i=iStart;i<iEnd;i++) {
 		cache[0][i].second = (Constraint*) realloc(cache[0][i].second, cache_it[i] * sizeof(Constraint));
 		cache[0][i].first = cache_it[i];
-		cache_it[i]=0;
+		cache_it[i] = 0;
 
 	}
 	cass_future_free(future);
@@ -151,8 +162,7 @@ printf("%d\n",cache_it[r1]);
 int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 
 	const char *seq_name2 = "rrm_100";
-
-
+	// Cache para 2 secuencias
 	cache.resize( 2 , std::vector<std::pair<int,Constraint *> >( 9999 ) );
 
 
@@ -161,9 +171,10 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 	double score=0, max_score=0, max_val=0;
 	int t_s, t_r;
 	static int **hasch, max_len;
+	int nseq = 2;
 
 	if ( !hasch ) {
-	   hasch=declare_int ( nseq, 9999);
+	   hasch = declare_int ( nseq, 9999);
 	}
 
 
@@ -238,14 +249,8 @@ int main()
 {
   int s1=1, r1=1, Chunk=1;
   const char *seq_name2 = "rrm_100";
-  /*
-  std::stringstream s;
-  s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s1 << " " << r1/Chunk << "'";
-  execute_query(s.str().c_str(), s1, r1/Chunk);
-  */
 
   residue_pair_extended_list ( s1, r1, 1, 1 );
 
   return 0;
 }
-
