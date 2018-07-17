@@ -182,25 +182,25 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 
 
 
-	if(cache[s1][r1].first==0) {
+	if(cache[0][r1].first==0) {
 		std::stringstream s;
 		s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s1 << " " << r1/Chunk << "'";
 		execute_query(s.str().c_str(), s1, r1/Chunk, 0);
 
 	}
 
-	if(cache[s2][r2].first==0) {
+	if(cache[1][r2].first==0) {
 		std::stringstream s;
 		s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s2 << " " << r2/Chunk << "'";
 		execute_query(s.str().c_str(), s2, r2/Chunk, 1);
 	}
 
-	for (int i=0; i<cache[s1][r1].first;i++) {
+	for (int i=0; i<cache[0][r1].first;i++) {
 	    t_s = cache[0][r1].second[i].s2;
 	    t_r = cache[0][r1].second[i].r2;
 	    hasch[t_s][t_r] = cache[0][r1].second[i].w;
 	    max_score += cache[0][r1].second[i].w;
-		//printf("%d\n", max_score);
+		printf("s1: %d r1: %d s2: %d r2: %d w: %d\n",s1, r1, t_s, t_r, hasch[t_s][t_r]);
 	}
 
 	hasch[s1][r1] = FORBIDEN;
@@ -216,7 +216,7 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 			}
 			else {
 				double delta;
-				delta = MIN(hasch[t_s][t_r], cache[s2][r2].second[i].w);
+				delta = MIN(hasch[t_s][t_r], cache[1][r2].second[i].w);
 
 				score += delta;
 				max_score -= hasch[t_s][t_r];
@@ -225,24 +225,25 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 			}
 	    }
 		else {
-			max_score += cache[s2][r2].second[i].w;
+			max_score += cache[1][r2].second[i].w;
 		}
 	}
 
 	max_score -= hasch[s2][r2];
 	//clean_residue_pair_hasch ( s1, r1,s2, r2, hasch, CL);
-
+	int normalise = 1;
+	int SCORE_K = 10;
 	if ( max_score == 0) {
 		return 0;
 	}
-	/*else if ( CL->normalise) {
-	    score=((score*CL->normalise)/max_score)*SCORE_K;
-	    if (max_val> CL->normalise) {
-			score*=max_val/(double)CL->normalise;
+	else if ( normalise) {
+	    score=(((float)score * normalise)/(float)max_score)*SCORE_K;
+	    if (max_val > normalise) {
+			score *= (double)max_val/(double)normalise;
 	    }
-	}*/
+	}
 
-	return (int)max_score;
+	return (int)score;
 }
 
 
@@ -252,7 +253,7 @@ int main()
   int s1=1, r1=1, Chunk=1;
   const char *seq_name2 = "rrm_100";
 
-  int score = residue_pair_extended_list ( s1, r1, 1, 1 );
+  int score = residue_pair_extended_list ( s1, r1, 2, 9 );
   printf("Score: %d\n", score);
 
   return 0;
