@@ -250,10 +250,11 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 
 int main()
 {
-  int s1=1, r1=1, Chunk=1;
-  const char *seq_name2 = "rrm_100";
+  int s1=0, r1=1, s2=12, r2=2;
 
-  int score = residue_pair_extended_list ( s1, r1, 2, 9 );
+  //const char *seq_name2 = "rrm_100";
+
+  int score = residue_pair_extended_list ( s1, r1, s2, r2 );
   printf("Score: %d\n", score);
 
   return 0;
