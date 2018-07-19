@@ -113,7 +113,7 @@ int execute_query(const char* query, int s1, int cr1, int cache_type) {
 		int size = cass_result_row_count ( result );
 
 
-		printf("Size: %d\n", size);
+		//printf("Size: %d\n", size);
 
 		if(size==0) {
 			for(int i=iStart;i<iEnd && i<max_len+1;i++) {cache[cache_type][i].first = -1;}
@@ -200,7 +200,7 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 	    t_r = cache[0][r1].second[i].r2;
 	    hasch[t_s][t_r] = cache[0][r1].second[i].w;
 	    max_score += cache[0][r1].second[i].w;
-		printf("s1: %d r1: %d s2: %d r2: %d w: %d\n",s1, r1, t_s, t_r, hasch[t_s][t_r]);
+		//printf("s1: %d r1: %d s2: %d r2: %d w: %d\n",s1, r1, t_s, t_r, hasch[t_s][t_r]);
 	}
 
 	hasch[s1][r1] = FORBIDEN;
@@ -250,11 +250,12 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 
 int main()
 {
-  int s1=0, r1=1, s2=12, r2=2;
+  int s1=0, r1=1, s2=1, r2=1;
 
   //const char *seq_name2 = "rrm_100";
 
   int score = residue_pair_extended_list ( s1, r1, s2, r2 );
+  printf("S1: %d R1: %d S2: %d R2: %d ", s1, r1, s2, r2);
   printf("Score: %d\n", score);
 
   return 0;
