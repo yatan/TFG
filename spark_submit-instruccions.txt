@@ -4,6 +4,7 @@ spark-submit --packages org.apache.spark:spark-streaming-kafka_2.11:1.6.3 ex1.py
 
 spark-submit --packages org.apache.kafka:kafka_2.11:0.11.0.3 producer.py
 
+pip install --user kafka-python
 https://github.com/dpkp/kafka-python
 
 
