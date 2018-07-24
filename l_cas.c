@@ -200,9 +200,9 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 	    t_r = cache[0][r1].second[i].r2;
 	    hasch[t_s][t_r] = cache[0][r1].second[i].w;
 	    max_score += cache[0][r1].second[i].w;
-		//printf("s1: %d r1: %d s2: %d r2: %d w: %d\n",s1, r1, t_s, t_r, hasch[t_s][t_r]);
+		printf("s1: %d r1: %d s2: %d r2: %d w: %d --> max_score: %lf.\n",s1, r1, t_s, t_r, hasch[t_s][t_r],max_score);
 	}
-
+printf("MAX Score_1: %lf\n", max_score);
 	hasch[s1][r1] = FORBIDEN;
 
 	for (int i=0; i<cache[1][r2].first;i++) {
@@ -222,14 +222,16 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 				max_score -= hasch[t_s][t_r];
 				max_score += delta;
 				max_val = MAX(max_val,delta);
+				printf("MAX_Val: %lf \t Score: %lf \t Max_Score: %lf \t DELTA: %lf\n",max_val, score, max_score, delta);
 			}
 	    }
 		else {
 			max_score += cache[1][r2].second[i].w;
 		}
 	}
-
+//printf("Score: %d - MAX Score_2: %d\n", score, max_score);
 	max_score -= hasch[s2][r2];
+//printf("Score: %d - MAX Score_3: %d\n", score, max_score);
 	//clean_residue_pair_hasch ( s1, r1,s2, r2, hasch, CL);
 	int normalise = 1;
 	int SCORE_K = 10;
@@ -242,6 +244,8 @@ int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 			score *= (double)max_val/(double)normalise;
 	    }
 	}
+printf("S1: %d R1: %d S2: %d R2: %d ", s1, r1, s2, r2);	
+printf("Score: %lf Max_Score: %lf Max_Val: %lf\n", (int)score, max_score, max_val);
 
 	return (int)score;
 }
@@ -255,8 +259,8 @@ int main()
   //const char *seq_name2 = "rrm_100";
 
   int score = residue_pair_extended_list ( s1, r1, s2, r2 );
-  printf("S1: %d R1: %d S2: %d R2: %d ", s1, r1, s2, r2);
-  printf("Score: %d\n", score);
+  //printf("S1: %d R1: %d S2: %d R2: %d ", s1, r1, s2, r2);
+  //printf("Score: %d\n", score);
 
   return 0;
 }

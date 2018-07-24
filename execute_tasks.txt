@@ -2,6 +2,10 @@ PPCAS run:
 
 ./run.sh ../examples/sdr_100 10 127.0.0.1 10 sdr_100
 
+Import Cassandra Libs:
+
+export LD_LIBRARY_PATH=/home/frb2/cpp-driver/build/
+
 t_coffe run:
 
 ./run.sh -i ../examples/sdr_100 -m 127.0.0.1 -s 127.0.0.1
@@ -9,8 +13,6 @@ t_coffe run:
 OUTPUT Execution:
 
 ./t_coffee /home/frb2/BDT-Coffee/examples/sdr_100 -extend_mode very_fast_triplet -dp_mode myers_miller_pair_wise -table_name sdr_100_bdtc_1 -cassandra_seed 127.0.0.1 -chunk_size 1
-
-
 
 Using rrm_100 created data:
 
