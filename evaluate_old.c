@@ -40,10 +40,6 @@
 #include <utility>
 #include "../util_lib/lru.h"
 
-int Chunk = 10;
-int nseq = 2;
-int max_len = 9999;
-
 inline size_t make_pair_un(int i,int j) {return (size_t) i << 32 | (unsigned int) j;}
 
 static mru_list< std::pair<int,int> > lru;
@@ -77,8 +73,6 @@ CassError connect_session(const CassCluster* cluster, CassSession* session) {
 
 	return rc;
 }
-
-std::vector<std::vector<std::pair<int,Constraint *> > > cache;
 
 int execute_query(const char* query, int s1, int cr1, Constraint_list *CL) {
 	CassError rc = CASS_OK;
@@ -170,91 +164,6 @@ int execute_query(const char* query, int s1, int cr1, Constraint_list *CL) {
 		
 	}
 	lru.insert(std::make_pair(s1,cr1));
-	cass_future_free(future);
-	cass_statement_free(statement);
-	return 1;
-}
-
-int execute_query_nuevo(const char* query, int s1, int cr1, int cache_type) {
-
-	CassCluster* cs_cluster;
-	CassSession* cs_session;
-
-	CassError rc = CASS_OK;
-	CassFuture* future = NULL;
-
-	cass_int32_t r1;
-	cass_int32_t s2;
-	cass_int32_t r2;
-	cass_int32_t w;
-
-	int iStart = cr1 * Chunk;
-	int iEnd = iStart + Chunk;
-
-	std::vector<std::vector<tsl::sparse_map<size_t, int>>> scores;
-	std::vector<int> cache_it;
-
-	cache_it.resize(max_len,0);
-
-	if(!cs_session) {
-		cs_session = cass_session_new();
-		cs_cluster = create_cluster("127.0.0.1");
-
-		if (connect_session(cs_cluster, cs_session) != CASS_OK) {
-			cass_cluster_free(cs_cluster);
-			cass_session_free(cs_session);
-			return -1;
-		}
-	}
-
-	CassStatement* statement = cass_statement_new(query, 0);
-	future = cass_session_execute(cs_session, statement);
-	cass_future_wait(future);
-
-	rc = cass_future_error_code(future);
-	if (rc == CASS_OK) {
-		const CassResult* result = cass_future_get_result(future);
-		CassIterator* iterator = cass_iterator_from_result(result);
-		int size = cass_result_row_count ( result );
-
-		if(size==0) {
-			for(int i=iStart;i<iEnd && i<max_len+1;i++) {cache[cache_type][i].first = -1;}
-			cass_result_free(result);
-			cass_future_free(future);
-			cass_statement_free(statement);
-			return 1;
-		}
-
-		for(int i=iStart;i<iEnd && i<max_len+1;i++) {
-			cache[cache_type][i].second = (Constraint*) malloc(size * sizeof(Constraint));
-		}
-
-		while (cass_iterator_next(iterator)) {
-			const CassRow* row = cass_iterator_get_row(iterator);
-			cass_value_get_int32(cass_row_get_column_by_name(row, "r1"), &r1);
-			cass_value_get_int32(cass_row_get_column_by_name(row, "s2"), &s2);
-			cass_value_get_int32(cass_row_get_column_by_name(row, "r2"), &r2);
-			cass_value_get_int32(cass_row_get_column_by_name(row, "w"), &w);
-
-			cache[cache_type][r1].second[cache_it[r1]].s2 = s2;
-			cache[cache_type][r1].second[cache_it[r1]].r2 = r2;
-			cache[cache_type][r1].second[cache_it[r1]].w = w;
-			cache_it[r1]++;
-		}
-		cass_result_free(result);
-	} else {
-		print_error(future);
-		cass_future_free(future);
-		cass_statement_free(statement);
-		return -1;
-	}
-
-	for(int i=iStart;i<iEnd && i<max_len+1;i++) {
-		cache[cache_type][i].second = (Constraint*) realloc(cache[cache_type][i].second, cache_it[i] * sizeof(Constraint));
-		cache[cache_type][i].first = cache_it[i];
-		cache_it[i] = 0;
-
-	}
 	cass_future_free(future);
 	cass_statement_free(statement);
 	return 1;
@@ -3671,91 +3580,7 @@ int residue_pair_extended_list_pc ( Constraint_list *CL, int s1, int r1, int s2,
 //clock_t toc = clock();
 //time_query += (double)(toc - tic) / CLOCKS_PER_SEC;
 
-
-extern "C" int residue_pair_extended_list_nuevo ( int s1, int r1, int s2, int r2 ) {
-
-	const char *seq_name2 = "rrm_100";
-	cache.resize( nseq , std::vector<std::pair<int,Constraint *> >( max_len + 1 ) );
-
-	if ( r1<=0 || r2<=0) {return 0;}
-
-	double score=0, max_score=0, max_val=0;
-	int t_s, t_r;
-	static int **hasch;
-
-	if ( !hasch ) {
-	   hasch = declare_int ( max_len, max_len + 1);
-	}
-
-
-
-	if(cache[0][r1].first==0) {
-		std::stringstream s;
-		s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s1 << " " << r1/Chunk << "'";
-		execute_query_nuevo(s.str().c_str(), s1, r1/Chunk, 0);
-	}
-
-	if(cache[1][r2].first==0) {
-		std::stringstream s;
-		s << "select r1,s2,r2,w from ppcas." << seq_name2 << " where key = '" << s2 << " " << r2/Chunk << "'";
-		execute_query_nuevo(s.str().c_str(), s2, r2/Chunk, 1);
-	}
-
-	for (int i=0; i<cache[0][r1].first;i++) {
-	    t_s = cache[0][r1].second[i].s2;
-	    t_r = cache[0][r1].second[i].r2;
-	    hasch[t_s][t_r] = cache[0][r1].second[i].w;
-	    max_score += cache[0][r1].second[i].w;
-	    //printf("s1: %d r1: %d s2: %d r2: %d w: %d --> max_score: %lf.\n",s1, r1, t_s, t_r, hasch[t_s][t_r],max_score);
-	}
-	hasch[s1][r1] = FORBIDEN;
-
-	for (int i=0; i<cache[1][r2].first;i++) {
-	    t_s = cache[1][r2].second[i].s2;
-	    t_r = cache[1][r2].second[i].r2;
-
-	    if (hasch[t_s][t_r]) {
-			if (hasch[t_s][t_r] == FORBIDEN) {
-				score += cache[1][r2].second[i].w;
-				max_score += cache[1][r2].second[i].w;
-			}
-			else {
-				double delta;
-				delta = MIN(hasch[t_s][t_r], cache[1][r2].second[i].w);
-
-				score += delta;
-				max_score -= hasch[t_s][t_r];
-				max_score += delta;
-				max_val = MAX(max_val,delta);
-				//printf("MAX_Val: %lf \t Score: %lf \t Max_Score: %lf \t DELTA: %lf\n",max_val, score, max_score, delta);
-			}
-	    }
-		else {
-			max_score += cache[1][r2].second[i].w;
-		}
-	}
-	max_score -= hasch[s2][r2];
-	//clean_residue_pair_hasch ( s1, r1,s2, r2, hasch, CL);
-	int normalise = 1;
-	int SCORE_K_normal = 10;
-	if ( max_score == 0) {
-		return 0;
-	}
-	else if ( normalise) {
-	    score=(((float)score * normalise)/(float)max_score)*SCORE_K_normal;
-	    if (max_val > normalise) {
-			score *= (double)max_val/(double)normalise;
-	    }
-	}
-
-	// Conversion
-	int score2 = (int)score;
-	char buffer[50];
-	sprintf(buffer, "%d", (int)score);
-	return atoi(buffer);
-}
-
-int residue_pair_extended_list_original ( Constraint_list *CL, int s1, int r1, int s2, int r2 ) {
+int residue_pair_extended_list ( Constraint_list *CL, int s1, int r1, int s2, int r2 ) {
 	if ( r1<=0 || r2<=0) {return 0;}
 	
 	auto it = CL->scores[s1][s2].find(make_pair_un(r1,r2));
@@ -3791,8 +3616,10 @@ int residue_pair_extended_list_original ( Constraint_list *CL, int s1, int r1, i
 	    t_r=CL->cache[s1][r1].second[i].r2;
 	    hasch[t_s][t_r]=CL->cache[s1][r1].second[i].w;
 	    max_score+=CL->cache[s1][r1].second[i].w;
+	    printf("s1: %d r1: %d s2: %d r2: %d w: %d --> max_score: %lf.\n",s1, r1, t_s, t_r, hasch[t_s][t_r],max_score);
 	}
 
+	printf("MAX Score_1: %lf\n", max_score);
 	hasch[s1][r1]=FORBIDEN;
 	for (int i=0; i<CL->cache[s2][r2].first;i++) {
 	    t_s=CL->cache[s2][r2].second[i].s2;
@@ -3810,6 +3637,7 @@ int residue_pair_extended_list_original ( Constraint_list *CL, int s1, int r1, i
 				max_score-=hasch[t_s][t_r];
 				max_score+=delta;
 				max_val=MAX(max_val,delta);
+				printf("MAX_Val: %lf \t Score: %lf \t Max_Score: %lf \t DELTA: %lf\n",max_val, score, max_score, delta);
 			}
 	    } else { max_score+=CL->cache[s2][r2].second[i].w;}
 	}
@@ -3835,19 +3663,10 @@ int residue_pair_extended_list_original ( Constraint_list *CL, int s1, int r1, i
 	lru_sc.insert(std::make_pair(s1,s2));
 	score_elements++;
 
+	printf("Score: %lf Max_Score: %lf Max_Val: %lf\n", (int)score, max_score, max_val);
+	if (s1==0 && r1==1 && s2==1 && r2==1) exit(0);
 	return (int)score;
-}
-
-
-int residue_pair_extended_list ( Constraint_list *CL, int s1, int r1, int s2, int r2 ) {
-
-	int score_original = residue_pair_extended_list_original( CL, s1, r1, s2, r2 );
-	int score_nuevo = residue_pair_extended_list_nuevo( s1, r1, s2, r2 );
-	if(score_original == score_nuevo && score_nuevo != 0)
-		printf("SO: %d - SN: %d \n", score_original, score_nuevo);
-	//if (s1==0 && r1==1 && s2==1 && r2==1) exit(0);
-return score_original;
-}
+	}
 	
 
 int ** clean_residue_pair_hasch (int s1, int r1, int s2, int r2,int **hasch, Constraint_list *CL)

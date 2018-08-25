@@ -1,0 +1,1 @@
+ ./t_coffee /home/frb2/BDT-Coffee/examples/rrm_100 -extend_mode very_fast_triplet -dp_mode myers_miller_pair_wise -table_name rrm_100 -cassandra_seed 127.0.0.1 -chunk_size 10

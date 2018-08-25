@@ -5,6 +5,7 @@
 #include <string.h>
 #include <vector>
 #include <sstream>
+#include <time.h>
 
 #include <tsl/sparse_map.h>
 #include <cassandra.h>
@@ -79,11 +80,6 @@ int execute_query(const char* query, int s1, int cr1, int cache_type) {
 	int iStart = cr1 * Chunk;
 	int iEnd = iStart + Chunk;
 
-	//static int aval_size = (CL->S)->nseq * ((CL->S)->max_len+1) * sizeof(int);
-
-
-
-//	std::vector<std::vector<std::pair<int,Constraint *> > > cache;
 	std::vector<std::vector<tsl::sparse_map<size_t, int>>> scores;
 	std::vector<int> cache_it;
 
@@ -98,8 +94,6 @@ int execute_query(const char* query, int s1, int cr1, int cache_type) {
 			cass_session_free(cs_session);
 			return -1;
 		}
-		//cass_cluster_free(cluster);
-		//cass_session_free(session);
 	}
 
 	CassStatement* statement = cass_statement_new(query, 0);
@@ -112,9 +106,6 @@ int execute_query(const char* query, int s1, int cr1, int cache_type) {
 		CassIterator* iterator = cass_iterator_from_result(result);
 		int size = cass_result_row_count ( result );
 
-
-		//printf("Size: %d\n", size);
-
 		if(size==0) {
 			for(int i=iStart;i<iEnd && i<max_len+1;i++) {cache[cache_type][i].first = -1;}
 			cass_result_free(result);
@@ -123,7 +114,6 @@ int execute_query(const char* query, int s1, int cr1, int cache_type) {
 			return 1;
 		}
 
-		//printf("[%d-%d]\n", iStart, iEnd);
 		for(int i=iStart;i<iEnd && i<max_len+1;i++) {
 			cache[cache_type][i].second = (Constraint*) malloc(size * sizeof(Constraint));
 		}
@@ -134,9 +124,6 @@ int execute_query(const char* query, int s1, int cr1, int cache_type) {
 			cass_value_get_int32(cass_row_get_column_by_name(row, "s2"), &s2);
 			cass_value_get_int32(cass_row_get_column_by_name(row, "r2"), &r2);
 			cass_value_get_int32(cass_row_get_column_by_name(row, "w"), &w);
-
-			//printf("r1: %d\n", r1);
-			//printf("%d\n",cache_it[r1]);
 
 			cache[cache_type][r1].second[cache_it[r1]].s2 = s2;
 			cache[cache_type][r1].second[cache_it[r1]].r2 = r2;
@@ -167,7 +154,6 @@ extern "C" int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 
 	const char *seq_name2 = "rrm_100";
 	cache.resize( nseq , std::vector<std::pair<int,Constraint *> >( max_len + 1 ) );
-
 
 	if ( r1<=0 || r2<=0) {return 0;}
 
@@ -240,14 +226,12 @@ extern "C" int residue_pair_extended_list ( int s1, int r1, int s2, int r2 ) {
 	    }
 	}
 	//printf("S1: %d R1: %d S2: %d R2: %d ", s1, r1, s2, r2);
-	printf("Score: %lf Max_Score: %lf \n", (int)score, max_score);
+	//printf("Score: %d Max_Score: %lf \n", (int)score, max_score);
+
 
 	// Conversion
-	char buffer[50];
-	sprintf(buffer, "%lf", (int)score);
-	//printf("Score final: %d\n", atoi(buffer));
-
-	return atoi(buffer);
+	int score2 = (int)score;
+	return score2;
 }
 
 
@@ -257,8 +241,15 @@ int main()
   int s1=0, r1=1, s2=1, r2=1;
 
   //const char *seq_name2 = "rrm_100";
+clock_t t;
+t = clock();
 
   int score = residue_pair_extended_list ( s1, r1, s2, r2 );
+
+t = clock() - t;
+double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+printf("Took %f seconds to execute \n", time_taken);
+
   //printf("S1: %d R1: %d S2: %d R2: %d ", s1, r1, s2, r2);
   printf("Score: %d\n", score);
 
